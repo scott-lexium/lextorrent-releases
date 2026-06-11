@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>lextorrent — BitTorrent client</title>
+  <meta name="description" content="Fast, private, open-source BitTorrent client for macOS, Windows, and Linux. Built on libtorrent." />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:       #2196F3;
+      --blue-hover: #1976D2;
+      --blue-dim:   rgba(33,150,243,.12);
+      --blue-ring:  rgba(33,150,243,.35);
+      --cyan:       #00BCD4;
+      --green:      #4CAF50;
+      --bg:         #0d1117;
+      --bg2:        #161b27;
+      --bg3:        #1c2440;
+      --border:     #21262d;
+      --border2:    #2d3748;
+      --text:       #e6edf3;
+      --muted:      #8b949e;
+      --radius:     10px;
+      --max:        1080px;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; text-decoration: none; }
+
+    /* ══ NAV ═══════════════════════════════════════════════════════ */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      border-bottom: 1px solid var(--border);
+      background: rgba(13,17,23,.88);
+      backdrop-filter: blur(18px);
+    }
+    .nav-wrap {
+      max-width: var(--max); margin: 0 auto; padding: 0 1.75rem;
+      height: 60px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .brand {
+      display: flex; align-items: center; gap: 9px;
+      font-weight: 700; font-size: 1rem;
+    }
+    nav ul { list-style: none; display: flex; align-items: center; gap: 1.8rem; }
+    nav ul a { font-size: .875rem; color: var(--muted); transition: color .15s; }
+    nav ul a:hover { color: var(--text); }
+    .nav-gh { display: flex; align-items: center; gap: 6px; }
+    .nav-gh svg { opacity: .6; transition: opacity .15s; }
+    .nav-gh:hover svg { opacity: 1; }
+    .nav-dl {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--blue);
+      color: #fff !important;
+      font-size: .84rem !important;
+      font-weight: 600;
+      padding: .42rem 1rem;
+      border-radius: 7px;
+      transition: background .15s !important;
+    }
+    .nav-dl:hover { background: var(--blue-hover) !important; }
+
+    /* ══ HERO ═══════════════════════════════════════════════════════ */
+    .hero {
+      padding: 100px 1.75rem 80px;
+      text-align: center;
+    }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 7px;
+      border: 1px solid var(--border2);
+      background: var(--bg2);
+      border-radius: 100px;
+      padding: .28rem .9rem;
+      font-size: .78rem; color: var(--muted);
+      margin-bottom: 1.8rem;
+      letter-spacing: .025em;
+    }
+    .hero-eyebrow .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+    }
+    .hero h1 {
+      font-size: clamp(2.6rem, 6.5vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 1.1rem;
+    }
+    .hero h1 em {
+      font-style: normal;
+      background: linear-gradient(130deg, #64B5F6 10%, var(--cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      font-size: 1.1rem; color: var(--muted);
+      max-width: 500px; margin: 0 auto 2.8rem;
+    }
+
+    /* ── Auto-download CTA ─────────────────────────────────────── */
+    #auto-dl-wrap {
+      display: flex; flex-direction: column; align-items: center;
+      gap: .6rem; margin-bottom: 2.4rem;
+    }
+    #auto-dl-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 1.05rem; font-weight: 700;
+      padding: .85rem 2rem;
+      border-radius: 10px;
+      border: none; cursor: pointer;
+      transition: background .15s, transform .1s, box-shadow .15s;
+      box-shadow: 0 4px 24px rgba(33,150,243,.25);
+    }
+    #auto-dl-btn:hover {
+      background: var(--blue-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 32px rgba(33,150,243,.35);
+    }
+    #auto-dl-btn:active { transform: translateY(0); }
+    #auto-dl-note {
+      font-size: .8rem; color: var(--muted);
+    }
+    .other-link {
+      font-size: .82rem; color: var(--muted);
+      border-bottom: 1px dashed var(--border2);
+      padding-bottom: 1px;
+      cursor: pointer;
+      transition: color .15s;
+    }
+    .other-link:hover { color: var(--text); }
+
+    /* ── Platform download cards ───────────────────────────────── */
+    #platform-cards {
+      display: none; /* shown when user clicks "other platforms" */
+    }
+    #platform-cards.visible {
+      display: block;
+      animation: fade-in .2s ease;
+    }
+    @keyframes fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .dl-grid {
+      display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .dl-card {
+      display: flex; flex-direction: column;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.15rem 1.4rem;
+      min-width: 200px; max-width: 240px;
+      cursor: pointer;
+      transition: border-color .2s, box-shadow .2s, transform .15s;
+      position: relative; overflow: hidden;
+    }
+    .dl-card::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, var(--blue-dim), transparent 55%);
+      opacity: 0; transition: opacity .2s;
+    }
+    .dl-card:hover { border-color: var(--blue); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(33,150,243,.14); }
+    .dl-card:hover::after { opacity: 1; }
+    .dl-card.active {
+      border-color: var(--blue-ring);
+      background: linear-gradient(140deg, #16253e 0%, var(--bg2) 100%);
+    }
+    .dl-platform {
+      display: flex; align-items: center; gap: 7px;
+      font-size: .72rem; font-weight: 600;
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: .08em; margin-bottom: .55rem;
+    }
+    .dl-action {
+      display: flex; align-items: center; gap: 7px;
+      font-size: .95rem; font-weight: 700; color: var(--text);
+      margin-bottom: .25rem;
+    }
+    .dl-action svg { color: var(--blue); flex-shrink: 0; }
+    .dl-req { font-size: .76rem; color: var(--muted); }
+
+    .version-line {
+      font-size: .8rem; color: var(--muted);
+      display: flex; align-items: center; justify-content: center; gap: .5rem;
+      margin-top: .5rem;
+    }
+    .version-line span { display: inline-block; width: 3px; height: 3px; background: var(--border2); border-radius: 50%; }
+    .version-line a { color: var(--muted); transition: color .15s; }
+    .version-line a:hover { color: var(--text); }
+
+    /* ══ DIVIDER ═══════════════════════════════════════════════════ */
+    hr.section-divider {
+      max-width: var(--max); margin: 0 auto;
+      border: none; border-top: 1px solid var(--border);
+    }
+
+    /* ══ FEATURES ══════════════════════════════════════════════════ */
+    .features { padding: 80px 1.75rem; }
+    .sec-head {
+      max-width: 540px; margin: 0 auto 3.5rem; text-align: center;
+    }
+    .sec-head h2 {
+      font-size: clamp(1.6rem, 3.5vw, 2.1rem);
+      font-weight: 700; letter-spacing: -.5px; margin-bottom: .55rem;
+    }
+    .sec-head p { color: var(--muted); font-size: .95rem; }
+
+    .feat-grid {
+      max-width: var(--max); margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.1rem;
+    }
+    .feat-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      transition: border-color .2s;
+    }
+    .feat-card:hover { border-color: var(--border2); }
+    .feat-icon {
+      width: 38px; height: 38px; flex-shrink: 0;
+      background: var(--blue-dim);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--blue); margin-bottom: .9rem;
+    }
+    .feat-card h3 { font-size: .95rem; font-weight: 700; margin-bottom: .35rem; }
+    .feat-card p  { font-size: .845rem; color: var(--muted); line-height: 1.6; }
+
+    /* ══ PRIVACY ═══════════════════════════════════════════════════ */
+    .privacy { padding: 80px 1.75rem; }
+    .priv-inner {
+      max-width: var(--max); margin: 0 auto;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 5rem; align-items: center;
+    }
+    .priv-copy h2 {
+      font-size: clamp(1.55rem, 3vw, 2rem);
+      font-weight: 700; letter-spacing: -.5px; margin-bottom: .75rem;
+    }
+    .priv-copy p { color: var(--muted); font-size: .93rem; line-height: 1.7; margin-bottom: 1.6rem; }
+    .priv-list { list-style: none; display: flex; flex-direction: column; gap: .85rem; }
+    .priv-list li { display: flex; align-items: flex-start; gap: .75rem; font-size: .88rem; }
+    .check-badge {
+      width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px;
+      background: var(--blue-dim); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; color: var(--blue);
+    }
+    .priv-list strong { display: block; font-weight: 600; margin-bottom: 1px; }
+    .priv-list small  { color: var(--muted); font-size: .81rem; }
+
+    /* Status panel */
+    .status-panel {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px; padding: 1.6rem;
+      font-family: "SFMono-Regular", Consolas, monospace; font-size: .82rem; line-height: 1.85;
+    }
+    .sp-title { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 1rem; }
+    .sp-row { display: flex; align-items: center; gap: .7rem; }
+    .sp-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .dot-green { background: #4CAF50; box-shadow: 0 0 5px #4CAF5077; }
+    .dot-red   { background: #f44336; }
+    .dot-grey  { background: #607D8B; }
+    .sp-key   { color: var(--muted); }
+    .sp-val   { margin-left: auto; }
+    .sp-divider { border: none; border-top: 1px solid var(--border); margin: .5rem 0; }
+    .sp-ok    { color: #4CAF50; font-weight: 600; }
+
+    /* ══ FOOTER ════════════════════════════════════════════════════ */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.2rem 1.75rem;
+    }
+    .foot-wrap {
+      max-width: var(--max); margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1rem;
+    }
+    .foot-brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: .95rem; }
+    .foot-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    .foot-links a { font-size: .84rem; color: var(--muted); transition: color .15s; }
+    .foot-links a:hover { color: var(--text); }
+    .foot-copy { font-size: .8rem; color: var(--muted); }
+
+    /* ══ RESPONSIVE ════════════════════════════════════════════════ */
+    @media (max-width: 780px) {
+      .feat-grid { grid-template-columns: 1fr 1fr; }
+      .priv-inner { grid-template-columns: 1fr; gap: 2.5rem; }
+      .status-panel { display: none; }
+    }
+    @media (max-width: 520px) {
+      .feat-grid { grid-template-columns: 1fr; }
+      nav ul li:not(:last-child) { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ NAV ══════════════════════════════════════════════════════════ -->
+<nav>
+  <div class="nav-wrap">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect width="26" height="26" rx="6.5" fill="url(#nb)"/>
+        <polygon points="14.5,3.2 10,13.5 14.5,13.5 8.2,22.8 19.2,12.2 13.8,12.2 17.8,3.2" fill="url(#nl)"/>
+        <defs>
+          <linearGradient id="nb" x1="0" y1="0" x2="0" y2="26" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#1c2444"/><stop offset="1" stop-color="#0b0f1e"/>
+          </linearGradient>
+          <linearGradient id="nl" x1="13" y1="3" x2="13" y2="23" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#90CAF9"/><stop offset=".6" stop-color="#2196F3"/><stop offset="1" stop-color="#00BCD4"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      lextorrent
+    </div>
+    <ul>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#privacy">Privacy</a></li>
+      <li>
+        <a class="nav-gh" href="https://github.com/scott-lexium/lextorrent" target="_blank" rel="noopener">
+          <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24" aria-label="GitHub">
+            <path d="M12 .3C5.37.3 0 5.67 0 12.3c0 5.3 3.44 9.8 8.2 11.38.6.1.83-.26.83-.57 0-.28-.01-1.02-.01-2-3.34.73-4.04-1.61-4.04-1.61-.54-1.37-1.33-1.74-1.33-1.74-1.08-.74.08-.73.08-.73 1.2.08 1.83 1.23 1.83 1.23 1.06 1.82 2.79 1.3 3.47.99.1-.77.41-1.3.75-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.23-3.22-.12-.3-.53-1.52.12-3.17 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02 0 2.04.13 3 .4 2.28-1.55 3.29-1.23 3.29-1.23.65 1.65.24 2.87.12 3.17.77.84 1.23 1.91 1.23 3.22 0 4.61-2.81 5.63-5.48 5.92.43.37.81 1.1.81 2.22 0 1.61-.01 2.9-.01 3.29 0 .32.22.69.83.57C20.57 22.1 24 17.6 24 12.3 24 5.67 18.63.3 12 .3z"/>
+          </svg>
+          GitHub
+        </a>
+      </li>
+      <li>
+        <a class="nav-dl" id="nav-dl-btn" href="https://github.com/scott-lexium/lextorrent/releases/latest">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span id="nav-dl-label">Download</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ══ HERO ══════════════════════════════════════════════════════════ -->
+<section class="hero" id="download">
+  <div class="hero-eyebrow">
+    <span class="dot" aria-hidden="true"></span>
+    Built on libtorrent-rasterbar 2.0
+  </div>
+
+  <h1>BitTorrent that<br><em>stays out of your way.</em></h1>
+  <p class="hero-sub">Open-source desktop client. Fast, private, and built on the same engine as qBittorrent. Zero telemetry.</p>
+
+  <!-- Auto-detected download CTA -->
+  <div id="auto-dl-wrap">
+    <a id="auto-dl-btn" href="https://github.com/scott-lexium/lextorrent/releases/latest">
+      <!-- Download arrow icon -->
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      <span id="auto-dl-label">Download</span>
+    </a>
+    <p id="auto-dl-note" class="hero-dl-note"></p>
+    <span class="other-link" id="other-platforms-toggle" onclick="togglePlatforms()">Other platforms</span>
+  </div>
+
+  <!-- All platform cards (hidden until toggled or no OS detected) -->
+  <div id="platform-cards">
+    <div class="dl-grid">
+
+      <!-- macOS -->
+      <a class="dl-card" data-os="macos"
+         href="https://github.com/scott-lexium/lextorrent-releases/releases/latest/download/lextorrent-macos.dmg">
+        <div class="dl-platform">
+          <!-- Apple logo -->
+          <svg width="13" height="13" fill="currentColor" viewBox="0 0 814 1000" aria-hidden="true">
+            <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 790.7 0 663 0 541.8c0-207.5 135.4-317.3 269-317.3 70.1 0 128.4 46.4 172.5 46.4 42.8 0 109.6-49 192.5-49 30.5 0 110.8 2.6 167.4 100.2zm-234-181.5c31.1-36.9 53.1-88.1 53.1-139.3 0-7.1-.6-14.3-1.9-20.1-50.6 1.9-110.8 33.7-147.1 75.8-28.5 32.4-55.1 83.6-55.1 135.5 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 45.4 0 102.5-30.4 135.5-71.3z"/>
+          </svg>
+          macOS
+        </div>
+        <div class="dl-action">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download .dmg
+        </div>
+        <div class="dl-req">macOS 12 Monterey or later</div>
+      </a>
+
+      <!-- Windows -->
+      <a class="dl-card" data-os="windows"
+         href="https://github.com/scott-lexium/lextorrent-releases/releases/latest/download/lextorrent-windows.exe">
+        <div class="dl-platform">
+          <!-- Windows logo -->
+          <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/>
+          </svg>
+          Windows
+        </div>
+        <div class="dl-action">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download .exe
+        </div>
+        <div class="dl-req">Windows 10 or later (64-bit)</div>
+      </a>
+
+      <!-- Linux -->
+      <a class="dl-card" data-os="linux"
+         href="https://github.com/scott-lexium/lextorrent-releases/releases/latest/download/lextorrent-linux-x86_64">
+        <div class="dl-platform">
+          <!-- Terminal icon -->
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+            <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+          </svg>
+          Linux
+        </div>
+        <div class="dl-action">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download binary
+        </div>
+        <div class="dl-req">Ubuntu 22.04+ · Fedora 37+ · Arch</div>
+      </a>
+
+    </div>
+    <div class="version-line">
+      v0.1.0
+      <span></span>
+      Open source
+      <span></span>
+      <a href="https://github.com/scott-lexium/lextorrent-releases/releases" target="_blank" rel="noopener">Release notes</a>
+      <span></span>
+      MIT License
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ══ FEATURES ══════════════════════════════════════════════════════ -->
+<section id="features" class="features">
+  <div class="sec-head">
+    <h2>Everything you need. Nothing you don't.</h2>
+    <p>A focused client with the features power users expect, built on a battle-tested engine.</p>
+  </div>
+  <div class="feat-grid">
+
+    <div class="feat-card">
+      <div class="feat-icon" aria-hidden="true">
+        <!-- Bolt / speed -->
+        <svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+      </div>
+      <h3>libtorrent core</h3>
+      <p>Runs on libtorrent-rasterbar 2.0 — the same engine behind qBittorrent and Deluge. Hundreds of simultaneous peers, full protocol support.</p>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon" aria-hidden="true">
+        <!-- Pause bars -->
+        <svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+        </svg>
+      </div>
+      <h3>Full playback control</h3>
+      <p>Pause, resume, and bulk-select torrents with checkboxes. Per-torrent download and upload speed limits. One-click open in Finder or Explorer.</p>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon" aria-hidden="true">
+        <!-- File -->
+        <svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/>
+        </svg>
+      </div>
+      <h3>Per-file priorities</h3>
+      <p>Set individual file priorities inside a torrent. Skip what you don't need. Download the important files first without waiting for the full archive.</p>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon" aria-hidden="true">
+        <!-- Globe -->
+        <svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+      </div>
+      <h3>Automatic tracker injection</h3>
+      <p>Pulls the best public trackers from ngosang/trackerslist every hour and adds them to every active torrent. More peers, better speeds, no manual setup.</p>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon" aria-hidden="true">
+        <!-- Wifi / UPnP -->
+        <svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>
+        </svg>
+      </div>
+      <h3>UPnP port forwarding</h3>
+      <p>Automatically opens and refreshes your router's port mapping so peers can connect inbound. No manual router configuration required.</p>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon" aria-hidden="true">
+        <!-- Code brackets -->
+        <svg width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+        </svg>
+      </div>
+      <h3>Open source</h3>
+      <p>Every line is readable, auditable, and forkable. No telemetry, no accounts, no analytics. Config is a single Python file you can edit directly.</p>
+    </div>
+
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ══ PRIVACY ═══════════════════════════════════════════════════════ -->
+<section id="privacy" class="privacy">
+  <div class="priv-inner">
+    <div class="priv-copy">
+      <h2>Privacy controls that actually work.</h2>
+      <p>Four independent protection layers, all configurable in the Settings dialog without touching a config file or the command line.</p>
+      <ul class="priv-list">
+        <li>
+          <div class="check-badge" aria-hidden="true">
+            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.8" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div>
+            <strong>SOCKS5 / HTTP proxy</strong>
+            <small>Route all peer, tracker, and DHT traffic through your VPN or proxy. Optional username/password authentication.</small>
+          </div>
+        </li>
+        <li>
+          <div class="check-badge" aria-hidden="true">
+            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.8" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div>
+            <strong>Forced encryption</strong>
+            <small>Drops unencrypted peer connections. Resists ISP traffic shaping and DPI-based throttling.</small>
+          </div>
+        </li>
+        <li>
+          <div class="check-badge" aria-hidden="true">
+            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.8" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div>
+            <strong>Interface binding — kill switch</strong>
+            <small>Bind all traffic to a specific network interface (e.g. utun3). If your VPN disconnects, traffic stops automatically.</small>
+          </div>
+        </li>
+        <li>
+          <div class="check-badge" aria-hidden="true">
+            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.8" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div>
+            <strong>DHT and LSD disable</strong>
+            <small>Prevents your IP from being announced to the global DHT network and local service discovery.</small>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Fake status panel -->
+    <div class="status-panel" aria-hidden="true">
+      <div class="sp-title">Privacy Status</div>
+      <div class="sp-row"><span class="sp-dot dot-green"></span><span class="sp-key">SOCKS5 Proxy</span><span class="sp-val">socks.mullvad.net:1080</span></div>
+      <div class="sp-row"><span class="sp-dot dot-green"></span><span class="sp-key">Encryption</span><span class="sp-val" style="color:#4CAF50">Forced on</span></div>
+      <div class="sp-row"><span class="sp-dot dot-green"></span><span class="sp-key">Interface</span><span class="sp-val">utun3</span></div>
+      <div class="sp-row"><span class="sp-dot dot-red"></span><span class="sp-key">DHT</span><span class="sp-val" style="color:#ef5350">Disabled</span></div>
+      <hr class="sp-divider">
+      <div class="sp-row"><span class="sp-dot dot-green"></span><span class="sp-ok">Protected</span></div>
+      <div style="margin-top:.4rem;color:var(--muted);font-size:.77rem;line-height:1.6">
+        All traffic bound to VPN interface<br>
+        0 unencrypted connections active
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FOOTER ══════════════════════════════════════════════════════════ -->
+<footer>
+  <div class="foot-wrap">
+    <div class="foot-brand">
+      <svg width="22" height="22" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <rect width="26" height="26" rx="6.5" fill="url(#fb)"/>
+        <polygon points="14.5,3.2 10,13.5 14.5,13.5 8.2,22.8 19.2,12.2 13.8,12.2 17.8,3.2" fill="url(#fl)"/>
+        <defs>
+          <linearGradient id="fb" x1="0" y1="0" x2="0" y2="26" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#1c2444"/><stop offset="1" stop-color="#0b0f1e"/>
+          </linearGradient>
+          <linearGradient id="fl" x1="13" y1="3" x2="13" y2="23" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#90CAF9"/><stop offset=".6" stop-color="#2196F3"/><stop offset="1" stop-color="#00BCD4"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      lextorrent
+    </div>
+    <div class="foot-links">
+      <a href="https://github.com/scott-lexium/lextorrent" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/scott-lexium/lextorrent-releases/releases" target="_blank" rel="noopener">Releases</a>
+      <a href="https://github.com/scott-lexium/lextorrent/issues" target="_blank" rel="noopener">Report a bug</a>
+      <a href="https://github.com/scott-lexium/lextorrent/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
+    </div>
+    <div class="foot-copy">MIT License &middot; Built with libtorrent &amp; PyQt6</div>
+  </div>
+</footer>
+
+<!-- ══ OS DETECTION ═══════════════════════════════════════════════════ -->
+<script>
+(function () {
+  var BASE = 'https://github.com/scott-lexium/lextorrent-releases/releases/latest/download/';
+
+  var PLATFORMS = {
+    macos:   { url: BASE + 'lextorrent-macos.dmg',        label: 'Download for macOS',   note: '.dmg · macOS 12 Monterey or later' },
+    windows: { url: BASE + 'lextorrent-windows.exe',      label: 'Download for Windows', note: '.exe · Windows 10+ (64-bit)' },
+    linux:   { url: BASE + 'lextorrent-linux-x86_64',     label: 'Download for Linux',   note: 'x86_64 binary · Ubuntu 22.04+, Fedora 37+, Arch' },
+  };
+
+  function detectOS() {
+    var ua = navigator.userAgent;
+    if (/Macintosh|Mac OS X/.test(ua)) return 'macos';
+    if (/Windows/.test(ua))            return 'windows';
+    if (/Linux/.test(ua))              return 'linux';
+    return null;
+  }
+
+  var os = detectOS();
+  var p  = os ? PLATFORMS[os] : null;
+
+  var btn      = document.getElementById('auto-dl-btn');
+  var label    = document.getElementById('auto-dl-label');
+  var note     = document.getElementById('auto-dl-note');
+  var navBtn   = document.getElementById('nav-dl-btn');
+  var navLabel = document.getElementById('nav-dl-label');
+  var toggle   = document.getElementById('other-platforms-toggle');
+  var cards    = document.getElementById('platform-cards');
+
+  if (p) {
+    // Wire up the big CTA button to the right binary
+    btn.href     = p.url;
+    label.textContent = p.label;
+    note.textContent  = p.note;
+
+    // Also update nav download button
+    navBtn.href = p.url;
+    navLabel.textContent = 'Download';
+
+    // Highlight the matching card when platforms are shown
+    var activeCard = document.querySelector('.dl-card[data-os="' + os + '"]');
+    if (activeCard) activeCard.classList.add('active');
+
+    // Show "Other platforms" toggle
+    toggle.style.display = 'inline';
+  } else {
+    // Unknown OS — show all cards immediately, hide toggle
+    cards.classList.add('visible');
+    toggle.style.display = 'none';
+    // Update CTA to generic releases page
+    label.textContent = 'Download';
+  }
+})();
+
+function togglePlatforms() {
+  var cards  = document.getElementById('platform-cards');
+  var toggle = document.getElementById('other-platforms-toggle');
+  if (cards.classList.contains('visible')) {
+    cards.classList.remove('visible');
+    toggle.textContent = 'Other platforms';
+  } else {
+    cards.classList.add('visible');
+    toggle.textContent = 'Hide';
+  }
+}
+</script>
+</body>
+</html>
