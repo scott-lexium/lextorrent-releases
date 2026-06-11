@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://scott-lexium.github.io/lextorrent-releases/sitemap.xml
